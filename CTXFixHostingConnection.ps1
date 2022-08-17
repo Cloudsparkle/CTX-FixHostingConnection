@@ -1,8 +1,8 @@
 <#
 .SYNOPSIS
-
+  Replace bad VMware cert on hosting connection
 .DESCRIPTION
-
+  Fix a broken Hosting Connection due to bad/expired/changed VMware VCA cert
 .INPUTS
   Hosting Connections
 .OUTPUTS
