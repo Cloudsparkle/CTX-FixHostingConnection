@@ -3,17 +3,15 @@
 
 .DESCRIPTION
 
-.PARAMETER <Parameter_Name>
-    None
 .INPUTS
-
+  Hosting Connections
 .OUTPUTS
-
+  None
 .NOTES
   Version:        1.0
   Author:         Bart Jacobs - @Cloudsparkle
-  Creation Date:
-  Purpose/Change:
+  Creation Date:  17/08/2022
+  Purpose/Change: Fix Citrix CVAD Hosting connection VCA cert
  .EXAMPLE
   None
 #>
@@ -50,6 +48,18 @@ $BADHC_NAME = $HC | Out-GridView -Title "Select the broken Hosting Connection" -
 if ($BADHC_NAME -eq $null)
 {
   $msgBoxInput = [System.Windows.MessageBox]::Show("Broken Hosting Connection not selected","Error","OK","Error")
+  switch  ($msgBoxInput)
+  {
+    "OK"
+    {
+      Exit 1
+    }
+  }
+}
+
+if ($NEWHC_NAME -eq $BADHC_NAME)
+{
+  $msgBoxInput = [System.Windows.MessageBox]::Show("The same Hosting Connection was selected twice","Error","OK","Error")
   switch  ($msgBoxInput)
   {
     "OK"
@@ -98,7 +108,7 @@ catch
 $cred = Get-Credential -Message "Enter credentials for the Hosting Connection Service Account"
 if ($cred -eq $null)
 {
-  $msgBoxInput = [System.Windows.MessageBox]::Show("Broken Hosting Connection not selected","Error","OK","Error")
+  $msgBoxInput = [System.Windows.MessageBox]::Show("Service Account credentials not provided","Error","OK","Error")
   switch  ($msgBoxInput)
   {
     "OK"
