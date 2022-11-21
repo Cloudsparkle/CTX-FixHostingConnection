@@ -22,53 +22,43 @@ If ((Get-PSSnapin "Citrix*" -EA silentlycontinue) -eq $null)
   catch {Write-error "Error loading Citrix Powershell snapins"; Return }
 }
 
-# Get ready for GUI stuff
-Add-Type -AssemblyName PresentationFramework
-
 # Initialize variables
 $NEWHC_NAME = ""
 $BADHC_NAME = ""
 $cred = ""
 
+Write-Host "Selecting newly created Hosting Connection..." -ForegroundColor Yellow
 $HC = Get-ChildItem XDHyp:\Connections | Select-object HypervisorConnectionName
 $NEWHC_NAME = $HC | Out-GridView -Title "Select the newly created Hosting Connection" -OutputMode Single
 if ($NEWHC_NAME -eq $null)
 {
-  $msgBoxInput = [System.Windows.MessageBox]::Show("Newly created Hosting Connection not selected","Error","OK","Error")
-  switch  ($msgBoxInput)
-  {
-    "OK"
-    {
-      Exit 1
-    }
-  }
+  write-host "Newly created Hosting Connection not selected, exiting" -ForegroundColor Red
+  Exit 1
+}
+Else
+{
+    Write-Host "New Hosting Connection selected" -ForegroundColor Green
 }
 
+Write-Host "Selecting Broken Hosting Connection..." -ForegroundColor Yellow
 $BADHC_NAME = $HC | Out-GridView -Title "Select the broken Hosting Connection" -OutputMode Single
 if ($BADHC_NAME -eq $null)
 {
-  $msgBoxInput = [System.Windows.MessageBox]::Show("Broken Hosting Connection not selected","Error","OK","Error")
-  switch  ($msgBoxInput)
-  {
-    "OK"
-    {
-      Exit 1
-    }
-  }
+    write-host "Broken Hosting Connection not selected, exiting" -ForegroundColor Red
+    Exit 1    
+}
+Else
+{
+    Write-Host "Broken Hosting Connection selected" -ForegroundColor Green
 }
 
 if ($NEWHC_NAME -eq $BADHC_NAME)
 {
-  $msgBoxInput = [System.Windows.MessageBox]::Show("The same Hosting Connection was selected twice","Error","OK","Error")
-  switch  ($msgBoxInput)
-  {
-    "OK"
-    {
-      Exit 1
-    }
-  }
+  write-host "The same Hosting Connection was selected twice, exiting" -ForegroundColor Red
+  Exit 1
 }
 
+Write-Host "Retrieving $NEWHC_NAME..." -ForegroundColor Yellow
 $NEWHC_PATH = "XDHYP:\Connections\"+$NEWHC_NAME.HypervisorConnectionName
 Try
 {
@@ -76,17 +66,12 @@ Try
 }
 catch
 {
-  $msgBoxInput = [System.Windows.MessageBox]::Show("Error retreiving $NEWHC_NAME ","Error","OK","Error")
-  switch  ($msgBoxInput)
-  {
-    "OK"
-    {
-      Exit 1
-    }
-  }
+  write-host "Error retrieving $NEWHC_NAME, exiting" -ForegroundColor Red
+  Exit 1
 }
-
+Write-Host "Gathering SSL Thumbprints..." -ForegroundColor Yellow
 $NEWHC_SSL = $NEWHC.SslThumbprints
+Write-Host "SSL Thumbprints succesfully gathered" -ForegroundColor Green
 
 $BADHC_PATH = "XDHYP:\Connections\"+$BADHC_NAME.HypervisorConnectionName
 try
@@ -95,41 +80,107 @@ try
 }
 catch
 {
-  $msgBoxInput = [System.Windows.MessageBox]::Show("Error retreiving $NEWHC_NAME ","Error","OK","Error")
-  switch  ($msgBoxInput)
-  {
-    "OK"
-    {
-      Exit 1
-    }
-  }
+    write-host "Error retreiving $BADHC_NAME, exiting" -ForegroundColor Red
+    Exit 1
 }
 
-$cred = Get-Credential -Message "Enter credentials for the Hosting Connection Service Account"
+$ADCredTest = $false
+do
+{
+    Write-host "Getting credentials for Hosting Connection Service Account..." -ForegroundColor Yellow
+    $cred = Get-Credential -Message "Enter credentials for the Hosting Connection Service Account"
+    if ($cred -eq $null)
+    {
+        break
+    }
+    
+    Write-Host "Checking authentication..." -ForegroundColor Yellow
+    $username = $Cred.username
+    $password = $Cred.GetNetworkCredential().password
+    $CurrentDomain = "LDAP://" + ([ADSI]"").distinguishedName
+    $domain = New-Object System.DirectoryServices.DirectoryEntry($CurrentDomain,$UserName,$Password)
+    if ($domain.name -eq $null)
+        {
+            write-host "Authentication failed - please verify your username and password." -ForegroundColor Red
+            $ADCredTest = $false
+        }
+        else
+        {
+            write-host "Successfully authenticated" -ForegroundColor Green
+            $ADCredTest = $true
+        }
+} until ($ADCredTest)
+
 if ($cred -eq $null)
 {
-  $msgBoxInput = [System.Windows.MessageBox]::Show("Service Account credentials not provided","Error","OK","Error")
-  switch  ($msgBoxInput)
-  {
-    "OK"
-    {
-      Exit 1
-    }
-  }
+    write-host "Service Account credentials not provided, exiting" -ForegroundColor Red
+    Exit 1
+}
+else
+{
+    write-host "Credentials for Hosting Connection Service Account are OK" -ForegroundColor Green
 }
 
+Write-host "Trying to fix the Hosting Connection..." -ForegroundColor Yellow
 try
 {
-    Set-Item -LiteralPath $BADHC_PATH -username $cred.username -Securepassword $cred.password -SslThumbprint $NEWHC_SSL -hypervisorAddress $BADHC.HypervisorAddress
+    Set-Item -LiteralPath $BADHC_PATH -username $cred.username -Securepassword $cred.password -SslThumbprint $NEWHC_SSL -hypervisorAddress $BADHC.HypervisorAddress -ErrorAction Stop
 }
 catch
 {
-  $msgBoxInput = [System.Windows.MessageBox]::Show("Error fixing Hosting Connection $BADHC_NAME","Error","OK","Error")
-  switch  ($msgBoxInput)
-  {
-    "OK"
+    write-host "Error fixing Hosting Connection $BADHC_NAME, exiting" -ForegroundColor Red
+    Exit 1
+}
+
+$HostingConName = $NEWHC_NAME.HypervisorConnectionName
+$title    = ''
+$question = "Do you want to delete the new Hosting Connection "+$HostingConName+"?"
+$choices  = '&Yes', '&No'
+write-host " "
+$decision = $Host.UI.PromptForChoice($title, $question, $choices, 1)
+
+if ($decision -eq 0) 
+{
+    $title    = ''
+    $question = "Are you sure to delete the new Hosting Connection "+$HostingConName+"?"
+    $choices  = '&Yes', '&No'
+    write-host " "
+    $decision2 = $Host.UI.PromptForChoice($title, $question, $choices, 1)
+
+    if ($decision2 -eq 0)
     {
-      Exit 1
+        $HypResources = get-childitem xdhyp:\HostingUnits | Where-Object {$_.HypervisorConnection -like $NEWHC_NAME.HypervisorConnectionName}
+        if ($HypResources -ne $null)
+        {
+            $RemovalError1 = $false
+            $RemovalError2 = $false
+            Try
+            {
+                Write-host "Removing Hosting Connection Resources..." -ForegroundColor Yellow
+                remove-item $HypResources.PSPath -ErrorAction Stop
+            }
+            Catch
+            {
+                Write-host "Error removing Hosting Connection Resources" -ForegroundColor Red
+                $RemovalError = $true
+            }
+            if ($RemovalError1 -eq $false)
+            {
+                Write-Host "Hosting Connection Resources removed" -ForegroundColor Green
+                Try
+                {
+                    Write-host "Removing Hosting Connection..." -ForegroundColor Yellow
+                    Remove-Item -Path $NEWHC_PATH -Force
+                }
+                catch
+                {
+                    Write-host "Error removing Hosting Connection" -ForegroundColor Red
+                }
+                if ($RemovalError2 -eq $false)
+                {
+                    Write-Host "Hosting Connection removed" -ForegroundColor Green
+                }             
+            }
+        }
     }
-  }
 }
