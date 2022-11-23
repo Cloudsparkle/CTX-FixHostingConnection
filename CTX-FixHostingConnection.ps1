@@ -122,15 +122,24 @@ else
 }
 
 Write-host "Trying to fix the Hosting Connection..." -ForegroundColor Yellow
+$BADHC_Displayname = $BADHC_NAME.HypervisorConnectionName
 try
 {
   Set-Item -LiteralPath $BADHC_PATH -username $cred.username -Securepassword $cred.password -SslThumbprint $NEWHC_SSL -hypervisorAddress $BADHC.HypervisorAddress -ErrorAction Stop
+  $HostingConnectionFixed = $true
 }
 catch
 {
-  write-host "Error fixing Hosting Connection $BADHC_NAME, exiting" -ForegroundColor Red
+  
+  write-host "Error fixing Hosting Connection $BADHC_Displayname, exiting" -ForegroundColor Red
   Exit 1
 }
+
+if ($HostingConnectionFixed)
+{
+  Write-Host "Hosting Connection $BADHC_Displayname was fixed succesfully" -ForegroundColor Green
+}
+
 
 $HostingConName = $NEWHC_NAME.HypervisorConnectionName
 $title    = ''
