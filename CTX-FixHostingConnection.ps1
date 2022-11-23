@@ -130,6 +130,7 @@ try
 }
 catch
 {
+  
   write-host "Error fixing Hosting Connection $BADHC_Displayname, exiting" -ForegroundColor Red
   Exit 1
 }
@@ -193,3 +194,5 @@ if ($decision -eq 0)
     }
   }
 }
+
+Read-Host "`nPress Enter to continue"
