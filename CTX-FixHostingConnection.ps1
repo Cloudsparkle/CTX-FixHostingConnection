@@ -11,7 +11,7 @@
   Version:        1.0
   Author:         Bart Jacobs - @Cloudsparkle
   Creation Date:  17/08/2022
-  Purpose/Change: Fix Citrix CVAD Hosting connection VCA cert
+  Purpose/Change: Fixes Citrix CVAD Hosting connection VCA cert
  .EXAMPLE
   None
 #>
@@ -130,7 +130,7 @@ try
 }
 catch
 {
-  
+
   write-host "Error fixing Hosting Connection $BADHC_Displayname, exiting" -ForegroundColor Red
   Exit 1
 }
